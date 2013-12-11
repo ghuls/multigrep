@@ -36,7 +36,7 @@ grep_patterns_file='';
 # Create an array for storing all input filenames passed on the command line.
 declare -a input_files;
 # Index for the input_files array.
-declare -i i=0;
+declare -i input_files_idx=0;
 
 
 # By default, search the whole line for the pattern.
@@ -70,30 +70,87 @@ usage () {
 
 
 
+# Create an array for storing all arguments passed on the command line.
+declare -a args_array;
+# Define arg_idx as an integer.
+declare -i arg_idx=0;
+# Define next_arg_idx as an integer.
+declare -i next_arg_idx=0;
+# Get number of arguments.
+declare -i nbr_args="${#@}";
 
-# Retrieve passed arguments and filenames.
-until ( [ -z "$1" ] ) ; do
-    case "${1}" in
-        -f)          if [ -z "${2}" ] ; then
+
+for arg in "${@}" ; do
+    # Store all passed arguments in args_array.
+    args_array[${arg_idx}]="${arg}";
+
+    # Increase args_array index.
+    arg_idx=arg_idx+1;
+done
+
+
+if [ ${nbr_args} -eq 0 ] ; then
+    # Print help message if no parameters are passed.
+    usage;
+    exit 0;
+fi
+
+
+
+for arg_idx in "${!args_array[@]}" ; do
+    if [ ${arg_idx} -ne ${next_arg_idx} ] ; then
+        # Don't process the argument arg_idx points to as this is an argument
+        # belonging to the "-f", "-g" or "-s" option. This argument is the
+        # value belonging to those parameters and not an option that still
+        # needs to be processed.
+        continue;
+    fi
+
+    case "${args_array[${arg_idx}]}" in
+        -f)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # "-f" was the last argument, so no field numbers where given.
                          printf "\nERROR: Parameter '-f' requires comma separated list of fields as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         field_numbers="${2}";
-                         shift 2;
+                         # Increase the next index argument with 1, so the next for loop, the field numbers argument is skipped.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the field numbers.
+                         field_numbers="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-f" and field numbers from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
                      fi;;
-        -g)          if [ -z "${2}" ] ; then
+        -g)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # "-g" was the last argument, so no filename was given.
                          printf "\nERROR: Parameter '-g' requires a file with grep patterns as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         grep_patterns_file="${2}";
-                         shift 2;
+                         # Increase the next index argument with 1, so the next for loop, the file argument is skipped.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the grep patterns filename.
+                         grep_patterns_file="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-g" and filename from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
                      fi;;
-        -s)          if [ -z "${2}" ] ; then
+        -s)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # "-s" was the last argument, so no field separator was given.
                          printf "\nERROR: Parameter '-s' requires a field separator pattern as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         field_separator="${2}";
-                         shift 2;
+                         # Increase the next index argument with 1, so the next for loop, the field separator argument is skipped.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the field separator.
+                         field_separator="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-s" and field separator from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
                      fi;;
         -h)          usage;
                      exit 0;;
@@ -102,19 +159,20 @@ until ( [ -z "$1" ] ) ; do
         --usage)     usage;
                      exit 0;;
         -)           # Add stdin to array.
-                     input_files[${i}]='-';
-                     i=i+1;
-                     shift 1;;
-        *)           if [ ! -e "${1}" ] ; then
-                         printf "\nERROR: Unknown parameter '$1'.\n\n" > /dev/stderr;
+                     input_files[${input_files_idx}]='-';
+                     input_files_idx=input_files_idx+1;;
+        *)           if [ ! -e "${args_array[${arg_idx}]}" ] ; then
+                         printf "\nERROR: Unknown parameter '${args_array[${arg_idx}]}'.\n\n" > /dev/stderr;
                          usage;
                          exit 1;
                      fi
                      # Add input files to array.
-                     input_files[${i}]="${1}";
-                     i=i+1;
-                     shift 1;;
+                     input_files[${input_files_idx}]="${args_array[${arg_idx}]}";
+                     input_files_idx=input_files_idx+1;;
     esac
+
+    # Increase the next argument index with 1.
+    next_arg_idx=next_arg_idx+1;
 done
 
 
