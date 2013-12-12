@@ -36,6 +36,7 @@ grep_patterns_file='';
 # Pattern to search for.
 search_pattern='';
 
+
 # Create an array for storing all input filenames passed on the command line.
 declare -a input_files;
 # Index for the input_files array.
@@ -48,16 +49,21 @@ field_numbers=0;
 field_separator='\t';
 
 
+# Match whole field (= 1) or not (= 0).
+match_whole_field=0;
+
+
 
 # Function for printing the help text.
 usage () {
     add_spaces="           ${0//?/ }";
 
-    printf "\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
+    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
            "Usage:     ${0} [-g grep_patterns_file]" \
            "${add_spaces} [-p search pattern]" \
            "${add_spaces} [-f field_numbers]" \
            "${add_spaces} [-s field_separator]" \
+           "${add_spaces} [-w]" \
            "${add_spaces} [file(s)]" \
            "Arguments:" \
            "           -f field_numbers         Comma separated list of field numbers." \
@@ -67,6 +73,7 @@ usage () {
            "           -g grep_patterns_file    File with patterns to grep for (required if no -p)." \
            "           -p search pattern        Pattern to search for (required if no -g)." \
            "           -s field_separator       Field separator (default: '\t')." \
+           "           -w                       Patterns need to match the whole line or field." \
            "Purpose:" \
            "           Grep for multiple patterns at once in one or more files.";
 }
@@ -172,6 +179,8 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
+        -w)          # A pattern need to match exactly with the whole line or selected fields.
+                     match_whole_field=1;;
         -h)          usage;
                      exit 0;;
         --help)      usage;
@@ -223,6 +232,7 @@ fi
     -v grep_patterns_file="${grep_patterns_file}" \
     -v search_pattern="${search_pattern}" \
     -v field_numbers="${field_numbers}" \
+    -v match_whole_field="${match_whole_field}" \
     -F "${field_separator}" \
     '
     BEGIN {
@@ -237,7 +247,11 @@ fi
                     i += 1;
 
                     # Save pattern from grep pattern file to array.
-                    grep_pattern_array[i] = $0;
+                    if ( match_whole_field == 1 ) {
+                        grep_pattern_array[i] = "^" $0 "$";
+                    } else {
+                        grep_pattern_array[i] = $0;
+                    }
                 }
             }
 
@@ -247,7 +261,11 @@ fi
                 i += 1;
 
                 # Add search_pattern to the end of the grep_pattern_array.
-                grep_pattern_array[i] = search_pattern;
+                if ( match_whole_field == 1 ) {
+                    grep_pattern_array[i] = "^" search_pattern "$";
+                } else {
+                    grep_pattern_array[i] = search_pattern;
+                }
             }
 
             # Split field_numbers on comma.
