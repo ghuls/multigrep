@@ -162,8 +162,12 @@ for arg_idx in "${!args_array[@]}" ; do
                      input_files[${input_files_idx}]='-';
                      input_files_idx=input_files_idx+1;;
         *)           if [ ! -e "${args_array[${arg_idx}]}" ] ; then
-                         printf "\nERROR: Unknown parameter '${args_array[${arg_idx}]}'.\n\n" > /dev/stderr;
+                         printf "\nERROR: Unknown parameter '%s'.\n\n" "${args_array[${arg_idx}]}" > /dev/stderr;
                          usage;
+                         exit 1;
+                     fi
+                     if [ -d "${args_array[${arg_idx}]}" ] ; then
+                         printf "\nERROR: '%s' is not a file but a directory.\n\n" "${args_array[${arg_idx}]}" > /dev/stderr;
                          exit 1;
                      fi
                      # Add input files to array.
@@ -180,9 +184,15 @@ done
 if [ -z "${grep_patterns_file}" ] ; then
     printf "\nERROR: Specify a grep patterns file.\n\n" > /dev/stderr;
     exit 1;
-elif [ ! -f "${grep_patterns_file}" ] ; then
-    printf "\nERROR: The grep patterns file '%s' could not be found.\n\n" "${grep_patterns_file}" > /dev/stderr;
-    exit 1;
+elif [ "${grep_patterns_file}" != '-' ] ; then
+    if [ ! -e "${grep_patterns_file}" ] ; then
+        printf "\nERROR: The grep patterns file '%s' could not be found.\n\n" "${grep_patterns_file}" > /dev/stderr;
+        exit 1;
+    fi
+    if [ -d "${grep_patterns_file}" ] ; then
+        printf "\nERROR: The grep patterns file '%s' is not a file but a directory.\n\n" "${grep_patterns_file}" > /dev/stderr;
+        exit 1;
+    fi
 fi
 
 
