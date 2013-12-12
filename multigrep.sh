@@ -33,6 +33,9 @@ fi
 # Filename which contains the patterns to grep for.
 grep_patterns_file='';
 
+# Pattern to search for.
+search_pattern='';
+
 # Create an array for storing all input filenames passed on the command line.
 declare -a input_files;
 # Index for the input_files array.
@@ -50,8 +53,9 @@ field_separator='\t';
 usage () {
     add_spaces="           ${0//?/ }";
 
-    printf "\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
-           "Usage:     ${0} -g grep_patterns_file" \
+    printf "\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
+           "Usage:     ${0} [-g grep_patterns_file]" \
+           "${add_spaces} [-p search pattern]" \
            "${add_spaces} [-f field_numbers]" \
            "${add_spaces} [-s field_separator]" \
            "${add_spaces} [file(s)]" \
@@ -60,7 +64,8 @@ usage () {
            "                                    If specified, the pattern natching will" \
            "                                    only occur in those fields instead of" \
            "                                    in the whole line ( = field_number=0)." \
-           "           -g grep_patterns_file    File with patterns to grep for (required)." \
+           "           -g grep_patterns_file    File with patterns to grep for (required if no -p)." \
+           "           -p search pattern        Pattern to search for (required if no -g)." \
            "           -s field_separator       Field separator (default: '\t')." \
            "Purpose:" \
            "           Grep for multiple patterns at once in one or more files.";
@@ -137,6 +142,21 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
+        -p)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # "-p" was the last argument, so no search pattern was given.
+                         printf "\nERROR: Parameter '-p' requires a search pattern as argument.\n\n" > /dev/stderr;
+                         exit 1;
+                     else
+                         # Increase the next index argument with 1, so the next for loop, the search pattern argument is skipped.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the search pattern separator.
+                         search_pattern="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-p" and search pattern from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
+                     fi;;
         -s)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
                          # "-s" was the last argument, so no field separator was given.
                          printf "\nERROR: Parameter '-s' requires a field separator pattern as argument.\n\n" > /dev/stderr;
@@ -181,17 +201,19 @@ done
 
 
 
-if [ -z "${grep_patterns_file}" ] ; then
-    printf "\nERROR: Specify a grep patterns file.\n\n" > /dev/stderr;
+if ( [ -z "${grep_patterns_file}" ] && [ -z "${search_pattern}" ] ) ; then
+    printf "\nERROR: Specify a grep patterns file (-g) or a search pattern (-p).\n\n" > /dev/stderr;
     exit 1;
-elif [ "${grep_patterns_file}" != '-' ] ; then
-    if [ ! -e "${grep_patterns_file}" ] ; then
-        printf "\nERROR: The grep patterns file '%s' could not be found.\n\n" "${grep_patterns_file}" > /dev/stderr;
-        exit 1;
-    fi
-    if [ -d "${grep_patterns_file}" ] ; then
-        printf "\nERROR: The grep patterns file '%s' is not a file but a directory.\n\n" "${grep_patterns_file}" > /dev/stderr;
-        exit 1;
+elif [ ! -z "${grep_patterns_file}" ] ; then
+    if [ "${grep_patterns_file}" != '-' ] ; then
+        if [ ! -e "${grep_patterns_file}" ] ; then
+            printf "\nERROR: The grep patterns file '%s' could not be found.\n\n" "${grep_patterns_file}" > /dev/stderr;
+            exit 1;
+        fi
+        if [ -d "${grep_patterns_file}" ] ; then
+            printf "\nERROR: The grep patterns file '%s' is not a file but a directory.\n\n" "${grep_patterns_file}" > /dev/stderr;
+            exit 1;
+        fi
     fi
 fi
 
@@ -199,20 +221,33 @@ fi
 
 "${AWK}" \
     -v grep_patterns_file="${grep_patterns_file}" \
+    -v search_pattern="${search_pattern}" \
     -v field_numbers="${field_numbers}" \
     -F "${field_separator}" \
     '
     BEGIN {
             # Index for the grep_pattern_array.
             i = 0;
-            
-            # Read grep patterns in an array.
-            while ( (getline < grep_patterns_file) > 0 ) {
+
+            # Check if a grep patterns file was specified.
+            if ( grep_patterns_file != "" ) {
+                # Read grep patterns in an array.
+                while ( (getline < grep_patterns_file) > 0 ) {
+                    # Increase the index.
+                    i += 1;
+
+                    # Save pattern from grep pattern file to array.
+                    grep_pattern_array[i] = $0;
+                }
+            }
+
+            # Check if a search_pattern was provided.
+            if ( search_pattern != "" ) {
                 # Increase the index.
                 i += 1;
-                
-                # Save pattern from grep pattern file to array.
-                grep_pattern_array[i] = $0;
+
+                # Add search_pattern to the end of the grep_pattern_array.
+                grep_pattern_array[i] = search_pattern;
             }
 
             # Split field_numbers on comma.
