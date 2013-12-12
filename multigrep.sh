@@ -62,7 +62,7 @@ match_whole_field=0;
 usage () {
     add_spaces="           ${0//?/ }";
 
-    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
+    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
            "Usage:     ${0} [-g grep_patterns_file]" \
            "${add_spaces} [-p search pattern]" \
            "${add_spaces} [-f field_numbers]" \
@@ -80,6 +80,7 @@ usage () {
            "           -r                       Interpret patterns as regular expressions." \
            "           -s field_separator       Field separator (default: '\t')." \
            "           -w                       Pattern(s) need to match the whole line or field." \
+           "                                    Pattern matching will be very fast with this option." \
            "Purpose:" \
            "           Grep for multiple patterns at once in one or more files.";
 }
@@ -250,28 +251,19 @@ fi
     -F "${field_separator}" \
     '
     BEGIN {
-            # Index for the grep_pattern_array.
-            i = 0;
-
             # Check if a grep patterns file was specified.
             if ( grep_patterns_file != "" ) {
-                # Read grep patterns in an array.
+                # Read grep patterns in the grep_pattern_array array.
                 while ( (getline < grep_patterns_file) > 0 ) {
-                    # Increase the index.
-                    i += 1;
-
                     # Save pattern from grep pattern file to array.
-                    grep_pattern_array[i] = $0;
+                    grep_pattern_array[$0] = $0;
                 }
             }
 
             # Check if a search_pattern was provided.
             if ( search_pattern != "" ) {
-                # Increase the index.
-                i += 1;
-
-                # Add search_pattern to the end of the grep_pattern_array.
-                grep_pattern_array[i] = search_pattern;
+                # Add search_pattern to the grep_pattern_array array.
+                grep_pattern_array[search_pattern] = search_pattern;
             }
 
             # Split field_numbers on comma.
@@ -295,10 +287,20 @@ fi
                     }
                 }
             }
+
+            # Set last printed line number to a non-existent line number.
+            last_printed_linenumber = 0;
     }
     {
             # Loop over all selected fields to look for the patterns.
             for ( field_number_idx in field_numbers_array ) {
+                # Go out of the field_numbers_array for loop and read next line,
+                # when we already printed the current line (no need to check for
+                # another match in the current line or in another field).
+                if ( last_printed_linenumber == NR ) {
+                    break;
+                }
+
                 # Go to the next field number if the current selected field number
                 # is higher than the number of fields of the current line.
                 if ( field_numbers_array[field_number_idx] > NF ) {
@@ -308,47 +310,73 @@ fi
                 # Set content variable to the right field number (= 1 or higher) or the whole line (= 0).
                 content = $field_numbers_array[field_number_idx];
 
-                # Check for each pattern if it matches the selected field.
-                for ( grep_pattern_idx in grep_pattern_array ) {
-                    # Check for the current pattern if it matches the selected field.
-                    if ( regex == 0 ) {
-                        # Do not treat pattern as regular expression.
-                        if ( match_whole_field == 1 ) {
-                            # Pattern needs to match the whole field/line.
-                            if ( content == grep_pattern_array[grep_pattern_idx] ) {
+                if ( regex == 0 ) {
+                    # match_whole_field = 1
+                    # ---------------------
+                    #
+                    # If the patterns needs to be interpreted as normal text and if
+                    # the patterns needs to match the whole field/line, a direct
+                    # key lookup (very fast) in the grep_pattern_array is possible
+                    # to find an exact match by checking all patterns at once.
+                    #
+                    # match_whole_field = 0:
+                    # ----------------------
+                    #
+                    # If the patterns needs to be interpreted as normal text but not
+                    # does not need to match the whole field/line, there is still a
+                    # chance that the patterns matches the whole field/line. Because
+                    # a direct key lookup is very fast, it is better to check for
+                    # this special condition first, before looking inside the current
+                    # selected field for those patterns by looping over each pattern
+                    # separately in a for loop.
+                    if ( content in grep_pattern_array ) {
+                        print_current_line = 1;
+                    } else if ( match_whole_field == 0 ) {
+                        # Patterns did not match whole field/line so search now in the
+                        # selected field for a match with a pattern for each pattern
+                        # separately.
+                        for ( grep_pattern_key in grep_pattern_array ) {
+                            # Pattern is interpreted as normal text and needs to be in
+                            # the current field/line.
+                            if ( index(content, grep_pattern_key) != 0 ) {
                                 print_current_line = 1;
+
+                                # Go out of the grep_pattern_array for loop, so no useless iterations are done.
+                                break;
                             }
-                        } else {
-                            # Pattern needs to be in the current field/line.
-                            if ( index(content, grep_pattern_array[grep_pattern_idx]) != 0 ) {
-                                print_current_line = 1;
-                            }
-                        }
-                    } else {
-                        # Threat pattern as as a regular expression.
-                        if ( match(content, grep_pattern_array[grep_pattern_idx]) != 0 ) {
-                            print_current_line = 1;
                         }
                     }
+                } else {
+                    # regex = 1:
+                    # ----------
+                    #
+                    # If the patterns needs to be interpreted as a regular expression,
+                    # loop over each pattern separately in a for loop.
+                    for ( grep_pattern_key in grep_pattern_array ) {
+                        # Threat pattern as as a regular expression.
+                        if ( match(content, grep_pattern_key) != 0 ) {
+                            print_current_line = 1;
 
-                    if ( print_current_line == 1 ) {
-                        # Print the current input line if the pattern matched.
-                        print $0;
-
-                        # Save the last printed line number, to prevent printing the same line more than once.
-                        last_printed_linenumber = NR;
-
-                        # Set back to zero.
-                        print_current_line = 0;
-
-                        # Go out of the grep_pattern_array for loop, so no useless iterations are done.
-                        break;
+                            # Go out of the grep_pattern_array for loop, so no useless iterations are done.
+                            break;
+                        }
                     }
                 }
 
-                # Go out of the field_numbers_array for loop and read next line, when we already printed the
-                # current line (no need to check of another match in the current line in another field).
-                if ( last_printed_linenumber == NR ) {
+
+                if ( print_current_line == 1 ) {
+                    # Print the current input line if the pattern matched.
+                    print $0;
+
+                    # Save the last printed line number, to prevent printing the same line more than once.
+                    last_printed_linenumber = NR;
+
+                    # Set back to zero.
+                    print_current_line = 0;
+
+                    # Go out of the field_numbers_array for loop, so no useless iterations are done.
+                    # Go out of the field_numbers_array for loop and read next line, when we already printed the
+                    # current line (no need to check of another match in the current line in another field).
                     break;
                 }
             }
