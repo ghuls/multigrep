@@ -36,6 +36,9 @@ grep_patterns_file='';
 # Pattern to search for.
 search_pattern='';
 
+# Pattern separator.
+pattern_separator='';
+
 
 # Create an array for storing all input filenames passed on the command line.
 declare -a input_files;
@@ -65,6 +68,7 @@ usage () {
     printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
            "Usage:     ${0} [-g grep_patterns_file]" \
            "${add_spaces} [-p search pattern]" \
+           "${add_spaces} [-P pattern_separator]" \
            "${add_spaces} [-f field_numbers]" \
            "${add_spaces} [-s field_separator]" \
            "${add_spaces} [-r]" \
@@ -77,6 +81,7 @@ usage () {
            "                                    in the whole line ( = field_number=0)." \
            "           -g grep_patterns_file    File with patterns to grep for (required if no -p)." \
            "           -p search pattern        Pattern to search for (required if no -g)." \
+           "           -P pattern separator     Pattern separator to use for -p option (default: '')." \
            "           -r                       Interpret patterns as regular expressions." \
            "           -s field_separator       Field separator (default: '\t')." \
            "           -w                       Pattern(s) need to match the whole line or field." \
@@ -171,6 +176,21 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
+         -P)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # "-P" was the last argument, so no search pattern was given.
+                         printf "\nERROR: Parameter '-P' requires a pattern separator as argument.\n\n" > /dev/stderr;
+                         exit 1;
+                     else
+                         # Increase the next index argument with 1, so the next for loop, the search pattern argument is skipped.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the search pattern separator.
+                         pattern_separator="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-P" and search pattern from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
+                     fi;;
         -r)          # Interpret patterns as regular expressions.
                      regex=1;;
         -s)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
@@ -245,6 +265,7 @@ fi
 "${AWK}" \
     -v grep_patterns_file="${grep_patterns_file}" \
     -v search_pattern="${search_pattern}" \
+    -v pattern_separator="${pattern_separator}" \
     -v field_numbers="${field_numbers}" \
     -v match_whole_field="${match_whole_field}" \
     -v regex="${regex}" \
@@ -262,8 +283,17 @@ fi
 
             # Check if a search_pattern was provided.
             if ( search_pattern != "" ) {
-                # Add search_pattern to the grep_pattern_array array.
-                grep_pattern_array[search_pattern] = search_pattern;
+                if ( pattern_separator != "" ) {
+                    split( search_pattern, search_pattern_array, pattern_separator );
+
+                    for ( search_pattern_idx in search_pattern_array ) {
+                        # Add each search_pattern_element to the grep_pattern_array array.
+                        grep_pattern_array[search_pattern_array[search_pattern_idx]] = search_pattern_array[search_pattern_idx];
+                    }
+                } else {
+                    # Add search_pattern to the grep_pattern_array array.
+                    grep_pattern_array[search_pattern] = search_pattern;
+                }
             }
 
             # Split field_numbers on comma.
