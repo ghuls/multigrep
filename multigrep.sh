@@ -322,6 +322,9 @@ fi
             last_printed_linenumber = 0;
     }
     {
+            # Set current_line_has_match back to zero as a new input line is processed.
+            current_line_has_match = 0;
+
             # Loop over all selected fields to look for the patterns.
             for ( field_number_idx in field_numbers_array ) {
                 # Go out of the field_numbers_array for loop and read next line,
@@ -360,7 +363,7 @@ fi
                     # selected field for those patterns by looping over each pattern
                     # separately in a for loop.
                     if ( content in grep_pattern_array ) {
-                        print_current_line = 1;
+                        current_line_has_match = 1;
                     } else if ( match_whole_field == 0 ) {
                         # Patterns did not match whole field/line so search now in the
                         # selected field for a match with a pattern for each pattern
@@ -369,7 +372,7 @@ fi
                             # Pattern is interpreted as normal text and needs to be in
                             # the current field/line.
                             if ( index(content, grep_pattern_key) != 0 ) {
-                                print_current_line = 1;
+                                current_line_has_match = 1;
 
                                 # Go out of the grep_pattern_array for loop, so no useless iterations are done.
                                 break;
@@ -385,7 +388,7 @@ fi
                     for ( grep_pattern_key in grep_pattern_array ) {
                         # Threat pattern as as a regular expression.
                         if ( match(content, grep_pattern_key) != 0 ) {
-                            print_current_line = 1;
+                            current_line_has_match = 1;
 
                             # Go out of the grep_pattern_array for loop, so no useless iterations are done.
                             break;
@@ -394,15 +397,12 @@ fi
                 }
 
 
-                if ( print_current_line == 1 ) {
+                if ( current_line_has_match == 1 ) {
                     # Print the current input line if the pattern matched.
                     print $0;
 
                     # Save the last printed line number, to prevent printing the same line more than once.
                     last_printed_linenumber = NR;
-
-                    # Set back to zero.
-                    print_current_line = 0;
 
                     # Go out of the field_numbers_array for loop, so no useless iterations are done.
                     # Go out of the field_numbers_array for loop and read next line, when we already printed the
