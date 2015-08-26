@@ -59,13 +59,16 @@ regex=0;
 # Match whole field (= 1) or not (= 0).
 match_whole_field=0;
 
+# Invert match (= 1) or not (= 0).
+invert_match=0;
+
 
 
 # Function for printing the help text.
 usage () {
     add_spaces="           ${0//?/ }";
 
-    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
+    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
            "Usage:     ${0} [-g grep_patterns_file]" \
            "${add_spaces} [-p search pattern]" \
            "${add_spaces} [-P pattern_separator]" \
@@ -73,6 +76,7 @@ usage () {
            "${add_spaces} [-s field_separator]" \
            "${add_spaces} [-r]" \
            "${add_spaces} [-w]" \
+           "${add_spaces} [-v]" \
            "${add_spaces} [file(s)]" \
            "Options:" \
            "           -f field_numbers         Comma separated list of field numbers." \
@@ -86,6 +90,7 @@ usage () {
            "           -s field_separator       Field separator (default: '\t')." \
            "           -w                       Pattern(s) need to match the whole line or field." \
            "                                    Pattern matching will be very fast with this option." \
+           "           -v                       Invert the sense of matching, to select non-matching fields/lines." \
            "Purpose:" \
            "           Grep for multiple patterns at once in one or more files.";
 }
@@ -210,6 +215,8 @@ for arg_idx in "${!args_array[@]}" ; do
                      fi;;
         -w)          # A pattern need to match exactly with the whole line or selected fields.
                      match_whole_field=1;;
+        -v)          # Invert the sense of matching, to select non-matching fields/lines.
+                     invert_match=1;;
         -h)          usage;
                      exit 0;;
         --help)      usage;
@@ -269,6 +276,7 @@ fi
     -v field_numbers="${field_numbers}" \
     -v match_whole_field="${match_whole_field}" \
     -v regex="${regex}" \
+    -v invert_match="${invert_match}" \
     -F "${field_separator}" \
     '
     BEGIN {
@@ -396,9 +404,17 @@ fi
                     }
                 }
 
-
-                if ( current_line_has_match == 1 ) {
-                    # Print the current input line if the pattern matched.
+                # Print the current line:
+                #   - if "-v" option was not used and if a match was found:
+                #       * invert_match = 0
+                #       * current_line_has_match == 1
+                #   - if "-v" option was used and if no match was found:
+                #       * invert_match = 1
+                #       * current_line_has_match == 0
+                if ( ( invert_match == 0 && current_line_has_match == 1 ) \
+                     || ( invert_match == 1 && current_line_has_match == 0 ) ) {
+                    
+                    # Print the current input line.
                     print $0;
 
                     # Save the last printed line number, to prevent printing the same line more than once.
