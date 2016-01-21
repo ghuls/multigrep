@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2013-2015 - Gert Hulselmans
 #
-# Purpose: Grep for multiple patterns at once in one or more files.
+# Purpose: Grep for multiple patterns at once in one or more columns.
 
 
 
@@ -66,33 +66,32 @@ invert_match=0;
 
 # Function for printing the help text.
 usage () {
-    add_spaces="           ${0//?/ }";
+    add_spaces="  ${0//?/ }";
 
-    printf "\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n%s\n\n" \
-           "Usage:     ${0} [-g grep_patterns_file]" \
-           "${add_spaces} [-p search pattern]" \
-           "${add_spaces} [-P pattern_separator]" \
-           "${add_spaces} [-f field_numbers]" \
-           "${add_spaces} [-s field_separator]" \
-           "${add_spaces} [-r]" \
-           "${add_spaces} [-w]" \
-           "${add_spaces} [-v]" \
+    printf '\n%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n\n' \
+           'Usage:' \
+           "  ${0} [-g grep_patterns_file]" \
+           "${add_spaces} [-p search_pattern] [-P pattern_separator]" \
+           "${add_spaces} [-f field_numbers]  [-s field_separator]" \
+           "${add_spaces} [-r] [-w] [-v]" \
            "${add_spaces} [file(s)]" \
-           "Options:" \
-           "           -f field_numbers         Comma separated list of field numbers." \
-           "                                    If specified, the pattern natching will" \
-           "                                    only occur in those fields instead of" \
-           "                                    in the whole line ( = field_number=0)." \
-           "           -g grep_patterns_file    File with patterns to grep for (required if no -p)." \
-           "           -p search pattern        Pattern to search for (required if no -g)." \
-           "           -P pattern separator     Pattern separator to use for -p option (default: '')." \
-           "           -r                       Interpret patterns as regular expressions." \
-           "           -s field_separator       Field separator (default: '\t')." \
-           "           -w                       Pattern(s) need to match the whole line or field." \
-           "                                    Pattern matching will be very fast with this option." \
-           "           -v                       Invert the sense of matching, to select non-matching fields/lines." \
-           "Purpose:" \
-           "           Grep for multiple patterns at once in one or more files.";
+           'Options:' \
+           '  -f field_numbers       Comma separated list of field numbers.   (default: 0)' \
+           '                         If specified, pattern matching will only be performed' \
+           '                         on the specified fields instead of on the whole line.' \
+           '  -g grep_patterns_file  File with patterns to grep for.   (required if no -p)' \
+           '  -p search_pattern      Pattern(s) to search for.         (required if no -g)' \
+           "  -P pattern_separator   Pattern separator.                      (default: '')" \
+           '                         Make separate patterns by splitting search_pattern' \
+           '                         string of -p option at each pattern_separator.' \
+           '  -r                     Interpret patterns as regular expressions.' \
+           "  -s field_separator     Field separator.                      (default: '\t')" \
+           '  -w                     Pattern(s) need to match the whole line or field.' \
+           '                         Pattern matching will be very fast with this option.' \
+           '  -v                     Invert the sense of matching, to select non-matching' \
+           '                         fields/lines.' \
+           'Purpose:' \
+           '  Grep for multiple patterns at once in one or more columns.';
 }
 
 
