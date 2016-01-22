@@ -118,7 +118,7 @@ done
 
 
 if [ ${nbr_args} -eq 0 ] ; then
-    # Print help message if no parameters are passed.
+    # Print help message if no parameters are passed and exit.
     usage;
     exit 0;
 fi
@@ -127,10 +127,9 @@ fi
 
 for arg_idx in "${!args_array[@]}" ; do
     if [ ${arg_idx} -ne ${next_arg_idx} ] ; then
-        # Don't process the argument arg_idx points to as this is an argument
-        # belonging to the "-f", "-g" or "-s" option. This argument is the
-        # value belonging to those parameters and not an option that still
-        # needs to be processed.
+        # Don't process the argument arg_idx points to when the previous
+        # argument was an option ("-f", "-g", "-p", "-P" or "-s") which
+        # requires an argument.
         continue;
     fi
 
@@ -140,7 +139,9 @@ for arg_idx in "${!args_array[@]}" ; do
                          printf "\nERROR: Parameter '-f' requires comma separated list of fields as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         # Increase the next index argument with 1, so the next for loop, the field numbers argument is skipped.
+                         # Increase the next argument index with 1,
+                         # so the field numbers argument will be
+                         # skipped in the next for loop iteration.
                          next_arg_idx=next_arg_idx+1;
 
                          # Get the field numbers.
@@ -151,17 +152,19 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${next_arg_idx}];
                      fi;;
         -g)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
-                         # "-g" was the last argument, so no filename was given.
+                         # "-g" was the last argument, so no grep patterns filename was given.
                          printf "\nERROR: Parameter '-g' requires a file with grep patterns as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         # Increase the next index argument with 1, so the next for loop, the file argument is skipped.
+                         # Increase the next argument index with 1,
+                         # so the grep patterns filename argument will
+                         # be skipped in the next for loop iteration.
                          next_arg_idx=next_arg_idx+1;
 
                          # Get the grep patterns filename.
                          grep_patterns_file="${args_array[${next_arg_idx}]}";
 
-                         # Remove "-g" and filename from the list of arguments.
+                         # Remove "-g" and grep patterns filename from the list of arguments.
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
@@ -170,10 +173,12 @@ for arg_idx in "${!args_array[@]}" ; do
                          printf "\nERROR: Parameter '-p' requires a search pattern as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         # Increase the next index argument with 1, so the next for loop, the search pattern argument is skipped.
+                         # Increase the next argument index with 1,
+                         # so the search pattern argument will be
+                         # skipped in the next for loop iteration.
                          next_arg_idx=next_arg_idx+1;
 
-                         # Get the search pattern separator.
+                         # Get the search pattern.
                          search_pattern="${args_array[${next_arg_idx}]}";
 
                          # Remove "-p" and search pattern from the list of arguments.
@@ -181,17 +186,19 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${next_arg_idx}];
                      fi;;
          -P)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
-                         # "-P" was the last argument, so no search pattern was given.
+                         # "-P" was the last argument, so no pattern separator was given.
                          printf "\nERROR: Parameter '-P' requires a pattern separator as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         # Increase the next index argument with 1, so the next for loop, the search pattern argument is skipped.
+                         # Increase the next argument index with 1,
+                         # so the pattern separator argument will be
+                         # skipped in the next for loop iteration.
                          next_arg_idx=next_arg_idx+1;
 
                          # Get the search pattern separator.
                          pattern_separator="${args_array[${next_arg_idx}]}";
 
-                         # Remove "-P" and search pattern from the list of arguments.
+                         # Remove "-P" and search pattern separator from the list of arguments.
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
@@ -202,7 +209,9 @@ for arg_idx in "${!args_array[@]}" ; do
                          printf "\nERROR: Parameter '-s' requires a field separator pattern as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
-                         # Increase the next index argument with 1, so the next for loop, the field separator argument is skipped.
+                         # Increase the next argument index with 1,
+                         # so the field separator argument will be
+                         # skipped in the next for loop iteration.
                          next_arg_idx=next_arg_idx+1;
 
                          # Get the field separator.
@@ -316,8 +325,9 @@ fi
 
                     # If it is not an number it will be converted to 0 by awk.
                     if ( field_numbers_array[field_number_idx] == 0 ) {
-                        # If we need to match the whole line it does not make sense to check individual fields,
-                        # so delete the array and recreate it with only one element set to 0 (= whole line).
+                        # If we need to match the whole line it does not make sense
+                        # to check individual fields, so delete the array and recreate
+                        # it again with only one element set to 0 (= whole line).
                         delete field_numbers_array;
                         field_numbers_array[1] = 0;
                         break;
@@ -328,6 +338,8 @@ fi
             # Set last printed line number to a non-existent line number.
             last_printed_linenumber = 0;
     }
+
+    # Process input files line by line.
     {
             # Set current_line_has_match back to zero as a new input line is processed.
             current_line_has_match = 0;
@@ -347,14 +359,15 @@ fi
                     continue;
                 }
 
-                # Set content variable to the right field number (= 1 or higher) or the whole line (= 0).
+                # Set content variable to the right field number (= 1 or higher)
+                # or the whole line (= 0).
                 content = $field_numbers_array[field_number_idx];
 
                 if ( regex == 0 ) {
                     # match_whole_field = 1
                     # ---------------------
                     #
-                    # If the patterns needs to be interpreted as normal text and if
+                    # If the patterns need to be interpreted as normal text and if
                     # the patterns needs to match the whole field/line, a direct
                     # key lookup (very fast) in the grep_pattern_array is possible
                     # to find an exact match by checking all patterns at once.
@@ -362,8 +375,8 @@ fi
                     # match_whole_field = 0:
                     # ----------------------
                     #
-                    # If the patterns needs to be interpreted as normal text but not
-                    # does not need to match the whole field/line, there is still a
+                    # If the patterns need to be interpreted as normal text but do
+                    # not need to match the whole field/line, there is still a
                     # chance that the patterns matches the whole field/line. Because
                     # a direct key lookup is very fast, it is better to check for
                     # this special condition first, before looking inside the current
@@ -381,7 +394,8 @@ fi
                             if ( index(content, grep_pattern_key) != 0 ) {
                                 current_line_has_match = 1;
 
-                                # Go out of the grep_pattern_array for loop, so no useless iterations are done.
+                                # Go out of the grep_pattern_array for loop, so no
+                                # useless iterations are done.
                                 break;
                             }
                         }
@@ -397,7 +411,8 @@ fi
                         if ( match(content, grep_pattern_key) != 0 ) {
                             current_line_has_match = 1;
 
-                            # Go out of the grep_pattern_array for loop, so no useless iterations are done.
+                            # Go out of the grep_pattern_array for loop, so no useless
+                            # iterations are done.
                             break;
                         }
                     }
@@ -406,22 +421,23 @@ fi
                 # Print the current line:
                 #   - if "-v" option was not used and if a match was found:
                 #       * invert_match = 0
-                #       * current_line_has_match == 1
+                #       * current_line_has_match = 1
                 #   - if "-v" option was used and if no match was found:
                 #       * invert_match = 1
-                #       * current_line_has_match == 0
+                #       * current_line_has_match = 0
                 if ( ( invert_match == 0 && current_line_has_match == 1 ) \
                      || ( invert_match == 1 && current_line_has_match == 0 ) ) {
                     
                     # Print the current input line.
                     print $0;
 
-                    # Save the last printed line number, to prevent printing the same line more than once.
+                    # Save the last printed line number, to prevent printing the same
+                    # line more than once.
                     last_printed_linenumber = NR;
 
-                    # Go out of the field_numbers_array for loop, so no useless iterations are done.
-                    # Go out of the field_numbers_array for loop and read next line, when we already printed the
-                    # current line (no need to check of another match in the current line in another field).
+                    # Go out of the field_numbers_array for loop and read the next line,
+                    # when we already printed the current line as there is no need to
+                    # check if there is another match in another field.
                     break;
                 }
             }
