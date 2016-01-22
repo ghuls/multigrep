@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (C) 2013-2015 - Gert Hulselmans
+# Copyright (C) 2013-2016 - Gert Hulselmans
 #
 # Purpose: Grep for multiple patterns at once in one or more columns.
 
