@@ -51,6 +51,9 @@ field_numbers=0;
 # Set the default field separator to TAB.
 field_separator='\t';
 
+# By default, use the whole line of the grep pattern file as a pattern.
+grep_patterns_file_field_number=0;
+
 
 # Interpret patterns as regular expressions (= 1) or not (= 0).
 regex=0;
@@ -68,9 +71,10 @@ invert_match=0;
 usage () {
     add_spaces="  ${0//?/ }";
 
-    printf '\n%s\n\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n\n' \
+    printf '\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n\n' \
            'Usage:' \
            "  ${0} [-g grep_patterns_file]" \
+           "${add_spaces} [-G grep_patterns_file_field_number]" \
            "${add_spaces} [-p search_pattern] [-P pattern_separator]" \
            "${add_spaces} [-f field_numbers]  [-s field_separator]" \
            "${add_spaces} [-r] [-w] [-v]" \
@@ -80,6 +84,10 @@ usage () {
            '                         If specified, pattern matching will only be performed' \
            '                         on the specified fields instead of on the whole line.' \
            '  -g grep_patterns_file  File with patterns to grep for.   (required if no -p)' \
+           '  -G grep_patterns_file_field_number' \
+           '                         Use only specified field from grep patterns file and' \
+           '                         and append content of grep pattern file to lines' \
+           '                         matching the specified field.' \
            '  -p search_pattern      Pattern(s) to search for.         (required if no -g)' \
            "  -P pattern_separator   Pattern separator.                      (default: '')" \
            '                         Make separate patterns by splitting search_pattern' \
@@ -128,14 +136,14 @@ fi
 for arg_idx in "${!args_array[@]}" ; do
     if [ ${arg_idx} -ne ${next_arg_idx} ] ; then
         # Don't process the argument arg_idx points to when the previous
-        # argument was an option ("-f", "-g", "-p", "-P" or "-s") which
-        # requires an argument.
+        # argument was an option ("-f", "-g", "-G", "-p", "-P" or "-s")
+        # which requires an argument.
         continue;
     fi
 
     case "${args_array[${arg_idx}]}" in
         -f)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
-                         # "-f" was the last argument, so no field numbers where given.
+                         # "-f" was the last argument, so no field numbers were given.
                          printf "\nERROR: Parameter '-f' requires comma separated list of fields as argument.\n\n" > /dev/stderr;
                          exit 1;
                      else
@@ -163,6 +171,23 @@ for arg_idx in "${!args_array[@]}" ; do
 
                          # Get the grep patterns filename.
                          grep_patterns_file="${args_array[${next_arg_idx}]}";
+
+                         # Remove "-g" and filename from the list of arguments.
+                         unset args_array[${arg_idx}];
+                         unset args_array[${next_arg_idx}];
+                     fi;;
+        -G)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
+                         # Remove "-g" and grep patterns filename from the list of arguments.
+                         printf "\nERROR: Parameter '-G' requires a field number of the grep pattern file argument.\n\n" > /dev/stderr;
+                         exit 1;
+                     else
+                         # Increase the next argument index with 1,
+                         # so the search pattern argument will be
+                         # skipped in the next for loop iteration.
+                         next_arg_idx=next_arg_idx+1;
+
+                         # Get the field number for grep pattern file.
+                         grep_patterns_file_field_number="${args_array[${next_arg_idx}]}";
 
                          # Remove "-g" and grep patterns filename from the list of arguments.
                          unset args_array[${arg_idx}];
@@ -282,6 +307,7 @@ fi
     -v search_pattern="${search_pattern}" \
     -v pattern_separator="${pattern_separator}" \
     -v field_numbers="${field_numbers}" \
+    -v grep_patterns_file_field_number="${grep_patterns_file_field_number}" \
     -v match_whole_field="${match_whole_field}" \
     -v regex="${regex}" \
     -v invert_match="${invert_match}" \
@@ -292,8 +318,12 @@ fi
             if ( grep_patterns_file != "" ) {
                 # Read grep patterns in the grep_pattern_array array.
                 while ( (getline < grep_patterns_file) > 0 ) {
-                    # Save pattern from grep pattern file to array.
-                    grep_pattern_array[$0] = $0;
+                    # Save pattern (whole line or certain column, depending on value of grep_patterns_file_field_number)
+                    # from grep pattern file to array.
+                    grep_pattern_array[$grep_patterns_file_field_number] = $grep_patterns_file_field_number;
+
+                    # Save whole line from grep pattern file to array.
+                    grep_pattern_full_line_array[$grep_patterns_file_field_number] = $0;
                 }
             }
 
@@ -323,7 +353,7 @@ fi
                     # Make an integer of each field number.
                     field_numbers_array[field_number_idx] = int(field_numbers_array[field_number_idx]);
 
-                    # If it is not an number it will be converted to 0 by awk.
+                    # If it is not a number it will be converted to 0 by awk.
                     if ( field_numbers_array[field_number_idx] == 0 ) {
                         # If we need to match the whole line it does not make sense
                         # to check individual fields, so delete the array and recreate
@@ -343,6 +373,9 @@ fi
     {
             # Set current_line_has_match back to zero as a new input line is processed.
             current_line_has_match = 0;
+
+            # Reset grep_pattern_string.
+            grep_pattern_string = "";
 
             # Loop over all selected fields to look for the patterns.
             for ( field_number_idx in field_numbers_array ) {
@@ -384,6 +417,8 @@ fi
                     # separately in a for loop.
                     if ( content in grep_pattern_array ) {
                         current_line_has_match = 1;
+
+                        grep_pattern_string = content;
                     } else if ( match_whole_field == 0 ) {
                         # Patterns did not match whole field/line so search now in the
                         # selected field for a match with a pattern for each pattern
@@ -393,6 +428,8 @@ fi
                             # the current field/line.
                             if ( index(content, grep_pattern_key) != 0 ) {
                                 current_line_has_match = 1;
+
+                                grep_pattern_string = grep_pattern_key;
 
                                 # Go out of the grep_pattern_array for loop, so no
                                 # useless iterations are done.
@@ -411,6 +448,8 @@ fi
                         if ( match(content, grep_pattern_key) != 0 ) {
                             current_line_has_match = 1;
 
+                            grep_pattern_string = grep_pattern_key;
+
                             # Go out of the grep_pattern_array for loop, so no useless
                             # iterations are done.
                             break;
@@ -427,9 +466,14 @@ fi
                 #       * current_line_has_match = 0
                 if ( ( invert_match == 0 && current_line_has_match == 1 ) \
                      || ( invert_match == 1 && current_line_has_match == 0 ) ) {
-                    
-                    # Print the current input line.
-                    print $0;
+
+                    if ( grep_pattern_full_line_array[grep_pattern_string] != "" ) {
+                        # Print the current input line and the full grep pattern line.
+                        print $0 FS grep_pattern_full_line_array[grep_pattern_string];
+                    } else {
+                        # Print the current input line.
+                        print $0;
+                    }
 
                     # Save the last printed line number, to prevent printing the same
                     # line more than once.
