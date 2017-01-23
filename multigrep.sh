@@ -55,6 +55,10 @@ field_separator='\t';
 grep_patterns_file_field_number=0;
 
 
+# Append grep patterns file content. (= 1) or not (= 0).
+append_grep_patterns_file_content=0;
+
+
 # Interpret patterns as regular expressions (= 1) or not (= 0).
 regex=0;
 
@@ -71,13 +75,13 @@ invert_match=0;
 usage () {
     add_spaces="  ${0//?/ }";
 
-    printf '\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n\n' \
+    printf '\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n%s\n\n%s\n\n' \
            'Usage:' \
            "  ${0} [-g grep_patterns_file]" \
            "${add_spaces} [-G grep_patterns_file_field_number]" \
            "${add_spaces} [-p search_pattern] [-P pattern_separator]" \
            "${add_spaces} [-f field_numbers]  [-s field_separator]" \
-           "${add_spaces} [-r] [-w] [-v]" \
+           "${add_spaces} [-a] [-r] [-w] [-v]" \
            "${add_spaces} [file(s)]" \
            'Options:' \
            '  -f field_numbers       Comma separated list of field numbers.   (default: 0)' \
@@ -92,6 +96,7 @@ usage () {
            "  -P pattern_separator   Pattern separator.                      (default: '')" \
            '                         Make separate patterns by splitting search_pattern' \
            '                         string of -p option at each pattern_separator.' \
+           '  -a                     Append grep patterns file content.' \
            '  -r                     Interpret patterns as regular expressions.' \
            "  -s field_separator     Field separator.                      (default: '\t')" \
            '  -w                     Pattern(s) need to match the whole line or field.' \
@@ -227,6 +232,8 @@ for arg_idx in "${!args_array[@]}" ; do
                          unset args_array[${arg_idx}];
                          unset args_array[${next_arg_idx}];
                      fi;;
+        -a)          # Append grep patterns file content.
+                     append_grep_patterns_file_content=1;;
         -r)          # Interpret patterns as regular expressions.
                      regex=1;;
         -s)          if [ $((arg_idx+1)) -eq ${nbr_args} ] ; then
@@ -308,6 +315,7 @@ fi
     -v pattern_separator="${pattern_separator}" \
     -v field_numbers="${field_numbers}" \
     -v grep_patterns_file_field_number="${grep_patterns_file_field_number}" \
+    -v append_grep_patterns_file_content="${append_grep_patterns_file_content}" \
     -v match_whole_field="${match_whole_field}" \
     -v regex="${regex}" \
     -v invert_match="${invert_match}" \
@@ -322,8 +330,10 @@ fi
                     # from grep pattern file to array.
                     grep_pattern_array[$grep_patterns_file_field_number] = $grep_patterns_file_field_number;
 
-                    # Save whole line from grep pattern file to array.
-                    grep_pattern_full_line_array[$grep_patterns_file_field_number] = $0;
+                    if ( append_grep_patterns_file_content == 1 ) {
+                        # Save whole line from grep pattern file to array when the "-a" is set.
+                        grep_pattern_full_line_array[$grep_patterns_file_field_number] = $0;
+                    }
                 }
             }
 
@@ -467,8 +477,8 @@ fi
                 if ( ( invert_match == 0 && current_line_has_match == 1 ) \
                      || ( invert_match == 1 && current_line_has_match == 0 ) ) {
 
-                    if ( grep_pattern_full_line_array[grep_pattern_string] != "" ) {
-                        # Print the current input line and the full grep pattern line.
+                    if ( append_grep_patterns_file_content == 1 ) {
+                        # Print the current input line and the full grep pattern line when "-a" is set.
                         print $0 FS grep_pattern_full_line_array[grep_pattern_string];
                     } else {
                         # Print the current input line.
