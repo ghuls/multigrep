@@ -19,14 +19,65 @@ cd multigrep
 ./multigrep
 ```
 
+### AWK implementations
+
+By default multigrep tries to use the following awk implementations (first one found will be used):
+
+1. frawk (fastest)
+2. mawk (fast)
+3. gawk (recent versions are not that slow)
+4. awk
+
+
+The default values set in multigrep.sh:
+
+```bash
+FRAWK=frawk
+MAWK=mawk
+GAWK=gawk
+```
+
+To override (change in the script, or export the variable or run `FRAWK=/path/to/frawk ./multigrep.sh`):
+
+```bash
+FRAWK=/path/to/frawk
+MAWK=/path/to/mawk
+GAWK=/path/to/gawk
+```
+
+The `AWK` variable will be set to the first found implementation of awk.
+To explicitly define which awk implementation to run, define `AWK`:
+
+```bash
+# Run multigrep with mawk (even if frawk is installed).
+AWK=mawk ./multigrep.sh
+```
+
+
+### Install frawk
+
+Install `frawk` from `[https://github.com/ezrosent/frawk](https://github.com/ezrosent/frawk).
+
+```bash
+git clone https://github.com/ezrosent/frawk
+
+# Install frawk (install cargo first (https://rustup.rs), if you do not have it).
+cargo +nightly install --path . --no-default-features --features use_jemalloc,allow_avx2,unstable
+```
+
 
 ### Install mawk
 
-Install `mawk` from [https://invisible-island.net/mawk/](https://invisible-island.net/mawk/)
-if you want the fastest experience. `mawk` provided by Debian is buggy and not recommended.
-If `mawk` is not found `gawk` is used instead.
+Install `mawk` from [https://invisible-island.net/mawk/](https://invisible-island.net/mawk/).
 
+Older versions of Devian/Ubuntu have mawk 1.3.3 (old and buggy). Recent versions have 1.3.4.
+
+```bash
+# Check if mawk returns version 1.3.4 or higher. If mawk returns 1.3.3, install a newer version as 1.3.3 is old and buggy.
+mawk -W version
 ```
+
+```bash
 # Download mawk tarball.
 wget 'https://invisible-island.net/datafiles/release/mawk.tar.gz'
 
@@ -34,7 +85,7 @@ wget 'https://invisible-island.net/datafiles/release/mawk.tar.gz'
 tar xvzf mawk.tar.gz
 
 # Change directory to extracted mawk tarball dir.
-cd mawk-1.3.4-20171017
+cd mawk-1.3.4-20200120
 
 # configure
 ./configure
