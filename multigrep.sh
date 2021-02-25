@@ -1,31 +1,48 @@
 #!/bin/bash
 #
-# Copyright (C) 2013-2016 - Gert Hulselmans
+# Copyright (C) 2013-2021 - Gert Hulselmans
 #
 # Purpose: Grep for multiple patterns at once in one or more columns.
 
 
 
-# Define the location of mawk and gawk:
+# Define the location of frawk, mawk and gawk which are used in autodetection mode:
 #
 # Those values can be overwritten from outside of this script with:
 #      MAWK=/some/path/to/mawk ./multigrep.sh
 # Or:
 #      export MAWK=/some/path/to/mawk
 #      ./multigrep.sh
-trash="${MAWK:='mawk'}";
-trash="${GAWK:='gawk'}";
+trash="${FRAWK:=frawk}";
+trash="${MAWK:=mawk}";
+trash="${GAWK:=gawk}";
 
-# Try to use the following awk variants in the following order:
-#   1. mawk
-#   2. gawk
-#   3. awk
-if [ $(type "${MAWK}" > /dev/null 2>&1; echo $?) -eq 0 ] ; then
-    AWK="${MAWK}";
-elif  [ $(type "${GAWK}" > /dev/null 2>&1; echo $?) -eq 0 ] ; then
-    AWK="${GAWK}";
-else
-    AWK='awk';
+
+# Define specific AWK binary (frawk, mawk, gawk, awk, ...) if you want to overwrite the automatic detection.
+#
+# Those values can be overwritten from outside of this script with:
+#      AWK=/some/path/to/awk ./multigrep.sh
+# Or:
+#      export AWK=/some/path/to/awk
+#      ./multigrep.sh
+AWK="${AWK}";
+
+
+# Try to use the following awk variants in the following order if AWK variable is empty:
+#   1. frawk
+#   2. mawk
+#   3. gawk
+#   4. awk
+if [ -z "${AWK}" ] ; then
+    if command -v "${FRAWK}" > /dev/null 2>&1 ; then
+        AWK="${FRAWK}";
+    elif command -v "${MAWK}" > /dev/null 2>&1 ; then
+        AWK="${MAWK}";
+    elif  command -v "${GAWK}" > /dev/null 2>&1 ; then
+        AWK="${GAWK}";
+    else
+        AWK='awk';
+    fi
 fi
 
 
